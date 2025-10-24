@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication.Cookies;
+
 namespace PRN232_QuizletUI
 {
     public class Program
@@ -8,7 +10,15 @@ namespace PRN232_QuizletUI
 
             // Add services to the container.
             builder.Services.AddRazorPages();
+            builder.Services.AddHttpClient<PRN232_QuizletUI.Services.ApiService>();
+            builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+            .AddCookie(options =>
+            {
+            options.LoginPath = "/Account/Login";
+            options.LogoutPath = "/Account/Logout";
+            });
 
+            
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
@@ -25,6 +35,7 @@ namespace PRN232_QuizletUI
             app.UseRouting();
 
             app.UseAuthorization();
+            app.UseAuthentication();
 
             app.MapRazorPages();
 

@@ -1,0 +1,17 @@
+﻿@page
+@model PRN232_QuizletUI.Pages.Account.LoginModel
+<h2>Login</h2>
+
+<form method="post">
+    <label>Email</label>
+    <input asp-for="Email" />
+    <label>Password</label>
+    <input asp-for="Password" type="password" />
+    <button type="submit">Login</button>
+</form>
+
+@if (Model.Message != null)
+{
+    <p>@Model.Message</p>
+}
+

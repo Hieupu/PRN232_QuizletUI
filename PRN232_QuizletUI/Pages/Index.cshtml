@@ -1,10 +1,35 @@
 ﻿@page
-@model IndexModel
+@model PRN232_QuizletUI.Pages.IndexModel
 @{
-    ViewData["Title"] = "Home page";
+    ViewData["Title"] = "Home";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="container mt-4">
+    <h2 class="mb-4 fw-bold text-primary text-center">Explore Flashcard Sets</h2>
+
+    @if (Model.FlashcardSets.Count == 0)
+    {
+        <p class="text-center text-muted">No flashcard sets available.</p>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var set in Model.FlashcardSets)
+            {
+                <div class="col-md-4 mb-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <h5 class="card-title text-primary">@set.Title</h5>
+                            <p class="card-text text-muted">@set.Description</p>
+                            <p class="mb-2">
+                                <small><b>Created by:</b> @set.CreatedBy</small><br />
+                                <small><b>Study count:</b> @set.StudyCount</small>
+                            </p>
+                            <a asp-page="/Sets/Detail" asp-route-id="@set.SetID" class="btn btn-outline-primary btn-sm">View Details</a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
 </div>
