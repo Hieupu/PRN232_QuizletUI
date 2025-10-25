@@ -2,34 +2,63 @@
 @model PRN232_QuizletUI.Pages.IndexModel
 @{
     ViewData["Title"] = "Home";
+    var searchQuery = ViewContext.HttpContext.Request.Query["search"].ToString();
 }
 
 <div class="container mt-4">
-    <h2 class="mb-4 fw-bold text-primary text-center">Explore Flashcard Sets</h2>
 
-    @if (Model.FlashcardSets.Count == 0)
+    @if (string.IsNullOrWhiteSpace(searchQuery))
     {
-        <p class="text-center text-muted">No flashcard sets available.</p>
+        <h4 class="fw-bold mb-3">📚 Public Flashcard Sets</h4>
     }
     else
     {
-        <div class="row">
+        <h4 class="fw-bold mb-3">🔍 Search results for "<span class="text-primary">@searchQuery</span>"</h4>
+    }
+
+    <!-- Danh sách flashcard sets -->
+    <div class="row g-3">
+        @if (Model.FlashcardSets.Count == 0)
+        {
+            <div class="text-center text-muted mt-5">
+                <p>No flashcard sets found.</p>
+            </div>
+        }
+        else
+        {
             @foreach (var set in Model.FlashcardSets)
             {
-                <div class="col-md-4 mb-4">
+                <div class="col-md-3">
                     <div class="card shadow-sm h-100">
-                        <div class="card-body">
-                            <h5 class="card-title text-primary">@set.Title</h5>
-                            <p class="card-text text-muted">@set.Description</p>
-                            <p class="mb-2">
-                                <small><b>Created by:</b> @set.CreatedBy</small><br />
-                                <small><b>Study count:</b> @set.StudyCount</small>
-                            </p>
-                            <a asp-page="/Sets/Detail" asp-route-id="@set.SetID" class="btn btn-outline-primary btn-sm">View Details</a>
+                        <div class="card-body d-flex flex-column justify-content-between">
+                            <div>
+                                <h5 class="card-title">@set.Title</h5>
+                                <p class="card-text text-muted small mb-2">@set.Description</p>
+                                <p class="small text-secondary mb-1">👤 <strong>@set.Author</strong></p>
+                                <p class="small text-secondary mb-1">📅 @set.CreatedAt.ToShortDateString()</p>
+                                <p class="small text-secondary">🔥 Studied: @set.StudyCount times</p>
+                            </div>
+                            <a href="/Sets/Details?id=@set.SetId" class="btn btn-outline-primary btn-sm mt-2">View</a>
                         </div>
                     </div>
                 </div>
             }
-        </div>
+        }
+    </div>
+
+    <!-- Phân trang -->
+    @if (Model.TotalPages > 1)
+    {
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                @for (int i = 1; i <= Model.TotalPages; i++)
+                {
+                    var query = string.IsNullOrEmpty(searchQuery) ? $"?page={i}" : $"?page={i}&search={searchQuery}";
+                    <li class="page-item @(i == Model.Page ? "active" : "")">
+                        <a class="page-link" href="@query">@i</a>
+                    </li>
+                }
+            </ul>
+        </nav>
     }
 </div>
