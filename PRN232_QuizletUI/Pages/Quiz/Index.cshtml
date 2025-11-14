@@ -1,0 +1,207 @@
+﻿@page
+@model PRN232_QuizletUI.Pages.Quiz.IndexModel
+@{
+    ViewData["Title"] = "Làm bài Quiz trắc nghiệm";
+    Layout = "_Layout";
+}
+
+<div class="container mt-4">
+    <h2 class="text-center mb-3">Làm bài Quiz trắc nghiệm</h2>
+
+    <div class="form-inline mb-3">
+        <label for="setId" class="mr-2">Chọn bộ câu hỏi:</label>
+        <select id="setId" class="form-control mr-2"></select>
+
+        <button id="btnPrev" class="btn btn-outline-secondary btn-sm mr-1">←</button>
+        <button id="btnNext" class="btn btn-outline-secondary btn-sm">→</button>
+
+        <div class="form-check ml-3">
+            <input type="checkbox" class="form-check-input" id="shuffleCheck">
+            <label class="form-check-label" for="shuffleCheck">Xáo trộn câu hỏi</label>
+        </div>
+
+        <button id="btnLoad" class="btn btn-primary ml-3">Tạo bài</button>
+    </div>
+
+    <div id="quizContainer" class="mt-4"></div>
+    <button id="btnSubmit" class="btn btn-success mt-3" style="display:none;">Nộp bài</button>
+
+    <div id="resultContainer" class="alert alert-info mt-4" style="display:none;"></div>
+
+    <h3 class="mt-5">Lịch sử làm bài</h3>
+    <table id="historyTable" class="table table-bordered mt-2">
+        <thead>
+            <tr>
+                <th>Quiz ID</th>
+                <th>Bộ câu hỏi</th>
+                <th>Tổng câu</th>
+                <th>Đúng</th>
+                <th>Điểm</th>
+                <th>Thời gian làm</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script>
+        // ========== CONFIG ==========
+        const API_BASE = "https://localhost:7225/api";
+        const userId = 2; // demo user id
+        let flashcards = [];
+        let currentPage = 1;
+        const pageSize = 8;
+
+        // ========== UTIL ==========
+        async function apiGet(url) {
+            const res = await fetch(`${API_BASE}${url}`);
+            if (!res.ok) throw new Error(`GET ${url} failed`);
+            return await res.json();
+        }
+
+        async function apiPost(url, data) {
+            const res = await fetch(`${API_BASE}${url}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            });
+            if (!res.ok) throw new Error(`POST ${url} failed`);
+            return await res.json();
+        }
+
+        // ========== LOAD SETS ==========
+        async function loadSets(page = 1) {
+            try {
+                const res = await fetch(`${API_BASE}/FlashcardSets?page=${page}&pageSize=${pageSize}`);
+                if (!res.ok) throw new Error("Fetch failed");
+
+                const json = await res.json();  
+                const data = json.data || [];      
+
+                renderSetOptions(data);
+
+                // cập nhật phân trang
+                currentPage = json.page;
+                totalPages = json.totalPages;
+            } catch (err) {
+                console.warn("Không load được FlashcardSets");
+                $("#setId").html(`
+                    <option value="1">C# Basics</option>
+                    <option value="2">ASP.NET Core</option>
+                `);
+            }
+        }
+
+
+        function renderSetOptions(list) {
+            $("#setId").html(list.map(s => `<option value="${s.setId}">${s.title}</option>`));
+        }
+
+        // Nút chuyển trang
+        $("#btnPrev").click(() => {
+            if (currentPage > 1) {
+                currentPage--;
+                loadSets(currentPage);
+            }
+        });
+
+        $("#btnNext").click(() => {
+            currentPage++;
+            loadSets(currentPage);
+        });
+
+        // ========== GENERATE QUIZ ==========
+        $("#btnLoad").click(async function () {
+            const setId = $("#setId").val();
+            const shuffle = $("#shuffleCheck").is(":checked");
+            try {
+                flashcards = await apiGet(`/Quizzes/generate/${setId}?shuffle=${shuffle}`);
+                renderQuestions();
+            } catch {
+                alert("Không tìm thấy câu hỏi cho set này.");
+            }
+        });
+
+        function renderQuestions() {
+            let html = "";
+            flashcards.forEach((q, idx) => {
+                html += `
+                    <div class="question-block mb-4">
+                        <h5>${idx + 1}. ${q.question}</h5>
+                        <div class="ml-3">
+                            ${["A","B","C","D"].map(opt => `
+                                <div class="form-check">
+                                    <input type="radio" name="q${q.flashcardId}" value="${opt}" class="form-check-input" id="q${q.flashcardId}_${opt}">
+                                    <label class="form-check-label" for="q${q.flashcardId}_${opt}">${q["option" + opt]}</label>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            $("#quizContainer").html(html);
+            $("#btnSubmit").show();
+            $("#resultContainer").hide();
+        }
+
+        // ========== SUBMIT QUIZ ==========
+        $("#btnSubmit").click(async function () {
+            const setId = $("#setId").val();
+            const answers = flashcards.map(q => {
+                const selected = $(`input[name=q${q.flashcardId}]:checked`).val();
+                return { flashcardId: q.flashcardId, selectedOption: selected || "" };
+            });
+
+            try {
+                const result = await apiPost("/Quizzes/submit", { userId, setId, answers });
+                $("#resultContainer")
+                    .html(`
+                        <h4>Kết quả</h4>
+
+
+                        <p>Tổng số câu: ${result.totalQuestions}</p>
+                        <p>Số câu đúng: ${result.correctAnswers}</p>
+                        <p>Điểm: <strong>${result.score}</strong></p>
+                    `)
+                    .show();
+                loadHistory();
+            } catch {
+                alert("Nộp bài thất bại, vui lòng thử lại.");
+            }
+        });
+
+        // ========== LOAD HISTORY ==========
+        async function loadHistory() {
+            try {
+                const data = await apiGet(`/Quizzes/history/${userId}`);
+                const tbody = $("#historyTable tbody");
+                tbody.html("");
+                data.forEach(row => {
+                    tbody.append(`
+                        <tr>
+                            <td>${row.quizId}</td>
+                            <td>${row.setId}</td>
+                            <td>${row.totalQuestions}</td>
+                            <td>${row.correctAnswers}</td>
+                            <td>${row.score}</td>
+                            <td>${new Date(row.endTime).toLocaleString()}</td>
+                        </tr>
+                    `);
+                });
+            } catch {
+                console.warn("Không thể tải lịch sử quiz");
+            }
+        }
+
+        // ========== INIT ==========
+        $(document).ready(() => {
+            loadSets();
+            loadHistory();
+        });
+    </script>
+}
+
+}
+
