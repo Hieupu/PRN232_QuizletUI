@@ -8,26 +8,69 @@
 <div class="container mt-4">
     <h2 class="text-center mb-3">Làm bài Quiz trắc nghiệm</h2>
 
+    <!-- ========== STATS TỔNG ========== -->
+    <div id="statsContainer" class="alert alert-secondary mb-4" style="display:none;">
+        <h5 class="mb-2">Thống kê tổng</h5>
+        <div class="row">
+            <div class="col-md-2 col-6"><strong>Tổng câu đã làm:</strong> <span id="statTotalQuestions">0</span></div>
+            <div class="col-md-2 col-6"><strong>Số câu đúng:</strong> <span id="statCorrect">0</span></div>
+            <div class="col-md-2 col-6"><strong>Số câu sai:</strong> <span id="statWrong">0</span></div>
+            <div class="col-md-2 col-6"><strong>Độ chính xác:</strong> <span id="statAccuracy">0%</span></div>
+            <div class="col-md-2 col-6"><strong>Điểm TB:</strong> <span id="statAvgScore">0</span></div>
+            <div class="col-md-2 col-6"><strong>Số lần làm bài:</strong> <span id="statAttempts">0</span></div>
+        </div>
+    </div>
+
+    <!-- ========== STATS THEO SET ========== -->
+    <div class="alert alert-warning mb-4">
+        <h5>Thống kê theo từng bộ câu hỏi</h5>
+
+        <div class="form-inline">
+            <label for="setStatsSelect" class="mr-2">Chọn bộ:</label>
+            <select id="setStatsSelect" class="form-control mr-3" style="width:250px;"></select>
+            <button class="btn btn-info" id="btnLoadSetStats">Xem thống kê</button>
+        </div>
+
+        <div id="setStatsResult" class="mt-3" style="display:none;">
+            <div><strong>Tổng câu đã làm:</strong> <span id="setStatTotalQuestions">0</span></div>
+            <div><strong>Số câu đúng:</strong> <span id="setStatCorrect">0</span></div>
+            <div><strong>Số câu sai:</strong> <span id="setStatWrong">0</span></div>
+            <div><strong>Độ chính xác:</strong> <span id="setStatAccuracy">0%</span></div>
+            <div><strong>Điểm trung bình:</strong> <span id="setStatAvgScore">0</span></div>
+            <div><strong>Số lần làm bài:</strong> <span id="setStatAttempts">0</span></div>
+        </div>
+    </div>
+
+    <!-- ========== CHỌN SET ĐỂ LÀM BÀI ========== -->
     <div class="form-inline mb-3">
+
         <label for="setId" class="mr-2">Chọn bộ câu hỏi:</label>
         <select id="setId" class="form-control mr-2"></select>
 
         <button id="btnPrev" class="btn btn-outline-secondary btn-sm mr-1">←</button>
         <button id="btnNext" class="btn btn-outline-secondary btn-sm">→</button>
 
-        <div class="form-check ml-3">
-            <input type="checkbox" class="form-check-input" id="shuffleCheck">
-            <label class="form-check-label" for="shuffleCheck">Xáo trộn câu hỏi</label>
+        <div class="ml-4">
+            <label class="mr-2">Số câu:</label>
+            <input type="number" id="amountInput" placeholder="Tất cả"
+                   class="form-control" style="width:120px;" min="1" />
         </div>
 
-        <button id="btnLoad" class="btn btn-primary ml-3">Tạo bài</button>
+        <div class="form-check ml-4">
+            <input type="checkbox" class="form-check-input" id="shuffleCheck">
+            <label for="shuffleCheck">Xáo trộn</label>
+        </div>
+
+        <button id="btnLoad" class="btn btn-primary ml-4">Tạo bài</button>
     </div>
 
+    <!-- QUIZ -->
     <div id="quizContainer" class="mt-4"></div>
     <button id="btnSubmit" class="btn btn-success mt-3" style="display:none;">Nộp bài</button>
 
     <div id="resultContainer" class="alert alert-info mt-4" style="display:none;"></div>
 
+    <!-- ========== LỊCH SỬ ========== -->
     <h3 class="mt-5">Lịch sử làm bài</h3>
     <table id="historyTable" class="table table-bordered mt-2">
         <thead>
@@ -37,171 +80,250 @@
                 <th>Tổng câu</th>
                 <th>Đúng</th>
                 <th>Điểm</th>
-                <th>Thời gian làm</th>
+                <th>Thời gian</th>
+                <th>Chi tiết</th>
             </tr>
         </thead>
         <tbody></tbody>
     </table>
 </div>
 
+<!-- ========== MODAL CHI TIẾT ========== -->
+<div class="modal fade" id="quizDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>Chi tiết bài Quiz</h5>
+                <button class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body" id="quizDetailBody"></div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+
     <script>
-        // ========== CONFIG ==========
+
         const API_BASE = "https://localhost:7225/api";
-        const userId = 2; // demo user id
+        const userId = 2;
+
         let flashcards = [];
         let currentPage = 1;
+        let totalPages = 1;
         const pageSize = 8;
 
-        // ========== UTIL ==========
         async function apiGet(url) {
-            const res = await fetch(`${API_BASE}${url}`);
-            if (!res.ok) throw new Error(`GET ${url} failed`);
-            return await res.json();
+            const res = await fetch(API_BASE + url);
+            if (!res.ok) throw new Error("GET failed: " + url);
+            return res.json();
         }
-
         async function apiPost(url, data) {
-            const res = await fetch(`${API_BASE}${url}`, {
+            const res = await fetch(API_BASE + url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data)
             });
-            if (!res.ok) throw new Error(`POST ${url} failed`);
-            return await res.json();
+            if (!res.ok) throw new Error("POST failed: " + url);
+            return res.json();
         }
 
-        // ========== LOAD SETS ==========
+        // ================= LOAD SETS =================
         async function loadSets(page = 1) {
+            const json = await apiGet(`/FlashcardSets?page=${page}&pageSize=${pageSize}`);
+            const data = json.data || [];
+
+            $("#setId").html(data.map(s => `<option value="${s.setId}">${s.title}</option>`));
+            $("#setStatsSelect").html(data.map(s => `<option value="${s.setId}">${s.title}</option>`));
+
+            currentPage = json.page;
+            totalPages = json.totalPages;
+        }
+
+        $("#btnPrev").click(() => currentPage > 1 && loadSets(--currentPage));
+        $("#btnNext").click(() => currentPage < totalPages && loadSets(++currentPage));
+
+        // ================= STATS TỔNG =================
+        async function loadStats() {
             try {
-                const res = await fetch(`${API_BASE}/FlashcardSets?page=${page}&pageSize=${pageSize}`);
-                if (!res.ok) throw new Error("Fetch failed");
+                const s = await apiGet(`/Quizzes/stats/${userId}`);
 
-                const json = await res.json();  
-                const data = json.data || [];      
+                $("#statTotalQuestions").text(s.totalQuestions);
+                $("#statCorrect").text(s.correct);
+                $("#statWrong").text(s.wrong);
+                $("#statAccuracy").text(s.accuracyPercent + "%");
+                $("#statAvgScore").text(s.averageScore);
+                $("#statAttempts").text(s.totalQuizAttempts);
 
-                renderSetOptions(data);
-
-                // cập nhật phân trang
-                currentPage = json.page;
-                totalPages = json.totalPages;
-            } catch (err) {
-                console.warn("Không load được FlashcardSets");
-                $("#setId").html(`
-                    <option value="1">C# Basics</option>
-                    <option value="2">ASP.NET Core</option>
-                `);
+                $("#statsContainer").show();
+            } catch {
+                $("#statsContainer").hide();
             }
         }
 
+        // ================= STATS THEO SET =================
+        $("#btnLoadSetStats").click(loadSetStats);
 
-        function renderSetOptions(list) {
-            $("#setId").html(list.map(s => `<option value="${s.setId}">${s.title}</option>`));
+        async function loadSetStats() {
+            const setId = $("#setStatsSelect").val();
+
+            try {
+                const s = await apiGet(`/Quizzes/stats/${userId}/set/${setId}`);
+
+                $("#setStatTotalQuestions").text(s.totalQuestions);
+                $("#setStatCorrect").text(s.correct);
+                $("#setStatWrong").text(s.wrong);
+                $("#setStatAccuracy").text(s.accuracyPercent + "%");
+                $("#setStatAvgScore").text(s.averageScore);
+                $("#setStatAttempts").text(s.totalQuizAttempts);
+
+                $("#setStatsResult").show();
+            } catch {
+                $("#setStatsResult").hide();
+                alert("Chưa có lịch sử cho bộ này.");
+            }
         }
 
-        // Nút chuyển trang
-        $("#btnPrev").click(() => {
-            if (currentPage > 1) {
-                currentPage--;
-                loadSets(currentPage);
-            }
-        });
-
-        $("#btnNext").click(() => {
-            currentPage++;
-            loadSets(currentPage);
-        });
-
-        // ========== GENERATE QUIZ ==========
-        $("#btnLoad").click(async function () {
+        // ================= GENERATE QUIZ =================
+        $("#btnLoad").click(async () => {
             const setId = $("#setId").val();
             const shuffle = $("#shuffleCheck").is(":checked");
-            try {
-                flashcards = await apiGet(`/Quizzes/generate/${setId}?shuffle=${shuffle}`);
-                renderQuestions();
-            } catch {
-                alert("Không tìm thấy câu hỏi cho set này.");
-            }
+
+            let amount = $("#amountInput").val();
+            if (!amount) amount = 0;
+
+            const res = await apiGet(`/Quizzes/generate/${setId}?shuffle=${shuffle}&amount=${amount}`);
+            flashcards = res.questions;
+
+            renderQuestions();
         });
 
         function renderQuestions() {
             let html = "";
+
             flashcards.forEach((q, idx) => {
                 html += `
-                    <div class="question-block mb-4">
+                    <div class="mb-4">
                         <h5>${idx + 1}. ${q.question}</h5>
                         <div class="ml-3">
                             ${["A","B","C","D"].map(opt => `
                                 <div class="form-check">
-                                    <input type="radio" name="q${q.flashcardId}" value="${opt}" class="form-check-input" id="q${q.flashcardId}_${opt}">
-                                    <label class="form-check-label" for="q${q.flashcardId}_${opt}">${q["option" + opt]}</label>
+                                    <input type="radio" name="q${q.flashcardId}" value="${opt}"
+                                           class="form-check-input" id="q${q.flashcardId}_${opt}">
+                                    <label for="q${q.flashcardId}_${opt}">${q["option" + opt]}</label>
                                 </div>
                             `).join('')}
                         </div>
                     </div>
                 `;
             });
+
             $("#quizContainer").html(html);
             $("#btnSubmit").show();
             $("#resultContainer").hide();
         }
 
-        // ========== SUBMIT QUIZ ==========
-        $("#btnSubmit").click(async function () {
+        // ================= SUBMIT QUIZ =================
+        $("#btnSubmit").click(async () => {
             const setId = $("#setId").val();
-            const answers = flashcards.map(q => {
-                const selected = $(`input[name=q${q.flashcardId}]:checked`).val();
-                return { flashcardId: q.flashcardId, selectedOption: selected || "" };
-            });
 
-            try {
-                const result = await apiPost("/Quizzes/submit", { userId, setId, answers });
-                $("#resultContainer")
-                    .html(`
-                        <h4>Kết quả</h4>
+            const answers = flashcards.map(q => ({
+                flashcardId: q.flashcardId,
+                selectedOption: $(`input[name=q${q.flashcardId}]:checked`).val() || ""
+            }));
 
+            const r = await apiPost("/Quizzes/submit", { userId, setId, answers });
 
-                        <p>Tổng số câu: ${result.totalQuestions}</p>
-                        <p>Số câu đúng: ${result.correctAnswers}</p>
-                        <p>Điểm: <strong>${result.score}</strong></p>
-                    `)
-                    .show();
-                loadHistory();
-            } catch {
-                alert("Nộp bài thất bại, vui lòng thử lại.");
-            }
+            $("#resultContainer").html(`
+                <h4>Kết quả</h4>
+                <p>Tổng câu: ${r.total}</p>
+                <p>Số câu đúng: ${r.correct}</p>
+                <p>Điểm: <strong>${r.score}</strong></p>
+            `).show();
+
+            await loadHistory();
+            await loadStats();
+            await loadSetStats();
         });
 
-        // ========== LOAD HISTORY ==========
+        // ================= LOAD HISTORY =================
         async function loadHistory() {
-            try {
-                const data = await apiGet(`/Quizzes/history/${userId}`);
-                const tbody = $("#historyTable tbody");
-                tbody.html("");
-                data.forEach(row => {
-                    tbody.append(`
-                        <tr>
-                            <td>${row.quizId}</td>
-                            <td>${row.setId}</td>
-                            <td>${row.totalQuestions}</td>
-                            <td>${row.correctAnswers}</td>
-                            <td>${row.score}</td>
-                            <td>${new Date(row.endTime).toLocaleString()}</td>
-                        </tr>
-                    `);
-                });
-            } catch {
-                console.warn("Không thể tải lịch sử quiz");
-            }
+            const data = await apiGet(`/Quizzes/history/${userId}`);
+            const tbody = $("#historyTable tbody").html("");
+
+            data.forEach(row => {
+                tbody.append(`
+                    <tr>
+                        <td>${row.quizId}</td>
+                        <td>${row.setId}</td>
+                        <td>${row.totalQuestions}</td>
+                        <td>${row.correctAnswers}</td>
+                        <td>${row.score}</td>
+                        <td>${new Date(row.endTime).toLocaleString()}</td>
+                        <td>
+                            <button class="btn btn-sm btn-info btn-detail" data-id="${row.quizId}">
+                                Xem
+                            </button>
+                        </td>
+                    </tr>
+                `);
+            });
         }
 
-        // ========== INIT ==========
-        $(document).ready(() => {
-            loadSets();
-            loadHistory();
+        // ================= DETAIL MODAL =================
+        $("#historyTable").on("click", ".btn-detail", async function () {
+            const quizId = $(this).data("id");
+            const details = await apiGet(`/Quizzes/result-detail/${quizId}`);
+            renderQuizDetail(details);
+            $("#quizDetailModal").modal("show");
         });
+
+        function renderQuizDetail(list) {
+            let html = "";
+
+            list.forEach((d, idx) => {
+                html += `
+                    <div class="border rounded p-3 mb-3">
+                        <h5>Câu ${idx + 1}: ${d.question}</h5>
+                        <div class="ml-3">
+                            ${["A","B","C","D"].map(opt => {
+                                const t = d["option" + opt];
+                                const isCorrect = d.correctOption === opt;
+                                const isUser = d.userAnswer === opt;
+
+                                let cls = "";
+                                let badge = "";
+
+                                if (isCorrect && isUser) {
+                                    cls = "text-success font-weight-bold";
+                                    badge = " <span class='badge badge-success'>Đúng</span>";
+                                }
+                                else if (isCorrect) {
+                                    cls = "text-success font-weight-bold";
+                                    badge = " <span class='badge badge-primary'>Đáp án đúng</span>";
+                                }
+                                else if (isUser) {
+                                    cls = "text-danger font-weight-bold";
+                                    badge = " <span class='badge badge-danger'>Bạn chọn</span>";
+                                }
+
+                                return `<div class="${cls}">${opt}. ${t}${badge}</div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            $("#quizDetailBody").html(html);
+        }
+
+        // ================= INIT =================
+        $(document).ready(async () => {
+            await loadSets();
+            await loadHistory();
+            await loadStats();
+        });
+
     </script>
 }
-
-}
-
