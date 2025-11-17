@@ -131,6 +131,7 @@
         <a asp-page="/Index" class="@(ViewData["Title"]?.ToString() == "Home" ? "active" : "")">🏠 Home</a>
         <a asp-page="/Sets/MySets">📚 My Sets</a>
         <a asp-page="/Sets/Create">➕ Create New</a>
+        <a asp-page="/Quiz">📝 Quiz</a>
     </aside>
 
     <main class="main-content">
@@ -269,6 +270,7 @@
                         <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="userMenuButton">
                             <li><a class="dropdown-item" href="/Profile">👤 My Profile</a></li>
                             <li><a class="dropdown-item" href="/Sets/MySets">📘 My Sets</a></li>
+                            <li><a class="dropdown-item" href="/Quiz">📝 Quiz</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item text-danger" href="#" id="logoutBtn">🚪 Logout</a></li>
                         </ul>

@@ -131,14 +131,24 @@
 
         // ================= LOAD SETS =================
         async function loadSets(page = 1) {
-            const json = await apiGet(`/FlashcardSets?page=${page}&pageSize=${pageSize}`);
-            const data = json.data || [];
+        const oldSelected = $("#setId").val();
 
-            $("#setId").html(data.map(s => `<option value="${s.setId}">${s.title}</option>`));
-            $("#setStatsSelect").html(data.map(s => `<option value="${s.setId}">${s.title}</option>`));
+        const json = await apiGet(`/FlashcardSets?page=${page}&pageSize=${pageSize}`);
+        const data = json.data || [];
 
-            currentPage = json.page;
-            totalPages = json.totalPages;
+        $("#setId").html(data.map(s => `<option value="${s.setId}">${s.title}</option>`));
+        $("#setStatsSelect").html(data.map(s => `<option value="${s.setId}">${s.title}</option>`));
+
+        if (oldSelected && data.some(x => x.setId == oldSelected)) {
+            $("#setId").val(oldSelected);
+        }
+
+        else {
+            $("#setId").val(data.length > 0 ? data[0].setId : null);
+        }
+
+        currentPage = json.page;
+        totalPages = json.totalPages;
         }
 
         $("#btnPrev").click(() => currentPage > 1 && loadSets(--currentPage));
